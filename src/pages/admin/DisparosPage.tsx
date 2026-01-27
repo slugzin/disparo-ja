@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -102,7 +101,6 @@ const DisparosPage: React.FC = () => {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
-  const [isTemplateDropdownOpen, setTemplateDropdownOpen] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [nomeCampanha, setNomeCampanha] = useState('');
   const [delay, setDelay] = useState(30);
@@ -495,10 +493,6 @@ const DisparosPage: React.FC = () => {
       </div>
     );
   }
-
-  const modalRoot = document.getElementById('modal-portal');
-
-  if (!modalRoot) return null; // Garante que o portal exista
 
   return (
     <div className="bg-background p-4 sm:p-6">
@@ -1000,10 +994,10 @@ const DisparosPage: React.FC = () => {
                                   {empresa.endereco.split(',').slice(-2).join(',')}
                               </p>
                           )}
-                        </div>
+                      </div>
                   </button>
                     ))}
-                      </div>
+                </div>
                     )}
                   </div>
                 </>
@@ -1012,8 +1006,8 @@ const DisparosPage: React.FC = () => {
           }
         </div>
 
-        {/* Modal de Configuração via Portal */}
-        {showDisparoConfig && ReactDOM.createPortal(
+        {/* Modal de Configuração */}
+        {showDisparoConfig && (
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setShowDisparoConfig(false)}
@@ -1026,10 +1020,9 @@ const DisparosPage: React.FC = () => {
               className="bg-background border border-border rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Cabeçalho do Modal */}
-              <div className="p-4 sm:p-6 border-b border-border">
+              <div className="p-6 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base sm:text-lg font-semibold text-foreground">
+                  <h2 className="text-lg font-semibold text-foreground">
                     Configurar Disparo ({selecionadas.length} empresas)
                   </h2>
                   <button
@@ -1041,98 +1034,84 @@ const DisparosPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Corpo com Scroll Interno */}
-              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="p-6 space-y-6 overflow-y-auto flex-1">
                 {/* Seleção de WhatsApp */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                <div className="">
+                  <label className="block text-sm font-medium text-foreground mb-3">
                     Conexão WhatsApp
                   </label>
                   {connections.length === 0 ? (
-                    <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
-                      <Phone className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-                      <h3 className="text-sm font-medium text-foreground mb-1">Nenhuma conexão</h3>
-                      <p className="text-xs text-muted-foreground mb-3">Configure uma conexão para continuar</p>
+                    <div className="text-center py-8 border-2 border-dashed border-border rounded-xl">
+                      <Phone className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-sm font-medium text-foreground mb-2">Nenhuma conexão WhatsApp</h3>
+                      <p className="text-xs text-muted-foreground mb-4">Configure uma conexão para enviar mensagens</p>
                       <button
                         onClick={() => {
                           setShowDisparoConfig(false);
                           navigate('/admin/conexoes');
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg font-medium transition-colors text-xs"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg font-medium transition-colors text-sm"
                       >
-                        <Phone size={14} />
-                        Configurar
+                        <Phone size={16} />
+                        Configurar Conexões
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {connections.map((connection) => (
                         <button
                           key={connection.id}
                           onClick={() => setSelectedConnection(connection.instance_name)}
-                          className={`p-3 border rounded-lg text-left transition-colors text-sm ${
+                          className={`p-3 border rounded-lg text-left transition-colors ${
                             selectedConnection === connection.instance_name
                               ? 'border-accent bg-accent/5'
                               : 'border-border hover:border-accent/40'
                           }`}
                         >
-                          <div className="font-medium text-foreground">{connection.instance_name}</div>
-                          <div className="text-xs text-muted-foreground">{connection.status}</div>
-                  </button>
-                    ))}
-                </div>
-                  )}
-                  </div>
+                          <div className="font-medium text-sm text-foreground">
+                            {connection.instance_name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {connection.status}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+          )}
+        </div>
 
-                {/* Seleção de Template com Dropdown */}
-                <div className="relative">
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                {/* Seleção de Template */}
+                <div className="">
+                  <label className="block text-sm font-medium text-foreground mb-3">
                     Template de Mensagem
                   </label>
-                  <button
-                    onClick={() => setTemplateDropdownOpen(!isTemplateDropdownOpen)}
-                    className="w-full p-3 border rounded-lg text-left transition-colors text-sm flex justify-between items-center bg-background border-border hover:border-accent/40"
-                  >
-                    {selectedTemplate ? (
-                      <div className="text-foreground">
-                        <div className="font-medium">{templates.find(t => t.id === selectedTemplate)?.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{templates.find(t => t.id === selectedTemplate)?.content}</div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">Selecione um template</span>
-                    )}
-                    <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${isTemplateDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  <AnimatePresence>
-                    {isTemplateDropdownOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto"
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {templates.map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => {
+                          setSelectedTemplate(template.id);
+                          setCustomMessage(template.content);
+                        }}
+                        className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                          selectedTemplate === template.id
+                            ? 'border-accent bg-accent/5'
+                            : 'border-border hover:border-accent/40'
+                        }`}
                       >
-                        {templates.map((template) => (
-                          <button
-                            key={template.id}
-                            onClick={() => {
-                              setSelectedTemplate(template.id);
-                              setCustomMessage(template.content);
-                              setTemplateDropdownOpen(false);
-                            }}
-                            className="w-full p-3 text-left transition-colors text-sm hover:bg-accent/5"
-                          >
-                            <div className="font-medium text-foreground">{template.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">{template.content}</div>
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <div className="font-medium text-sm text-foreground">
+                          {template.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {template.content}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Mensagem Personalizada */}
-                <div>
+                <div className="">
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Mensagem
                   </label>
@@ -1141,13 +1120,13 @@ const DisparosPage: React.FC = () => {
                     onChange={(e) => setCustomMessage(e.target.value)}
                     placeholder="Digite sua mensagem..."
                     className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none"
-                    rows={3}
+                    rows={4}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-2">
                       Nome da Campanha
                     </label>
                     <input
@@ -1160,7 +1139,7 @@ const DisparosPage: React.FC = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-2">
                       Delay (segundos)
                     </label>
                     <input
@@ -1175,8 +1154,8 @@ const DisparosPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Rodapé do Modal */}
-              <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-border">
+              {/* Botões */}
+              <div className="flex justify-end gap-3 p-6 border-t border-border">
                 <button
                   onClick={() => setShowDisparoConfig(false)}
                   className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -1196,14 +1175,13 @@ const DisparosPage: React.FC = () => {
                   ) : (
                     <>
                       <Play size={16} />
-                      Confirmar
-            </>
-          )}
+                      Confirmar Disparo
+                    </>
+                  )}
                 </button>
-        </div>
+              </div>
             </motion.div>
-          </div>,
-          modalRoot
+          </div>
         )}
 
         {/* Animação de Disparo */}
