@@ -1,81 +1,107 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Building, MapPin, Globe, ChevronDown, Search, Target, Download, Phone, Save } from '../../utils/icons';
-import { captarEmpresas, buscarLocalizacoes, salvarEmpresas, type Empresa } from '../../services/edgeFunctions';
-import FiltrosAtivosBanner from '../../components/ui/FiltrosAtivosBanner';
-import PageHeader from '../../components/ui/PageHeader';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useRef, useEffect } from "react";
+import { useAction, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import {
+  Building,
+  MapPin,
+  Globe,
+  Search,
+  Target,
+  Download,
+  Phone,
+  Save,
+} from "../../utils/icons";
+import PageHeader from "../../components/ui/PageHeader";
 
-interface Location {
-  name: string;
-  canonicalName?: string;
-  googleId?: number;
-  countryCode: string;
-  targetType?: string;
+interface Empresa {
+  titulo: string;
+  endereco?: string;
+  telefone?: string;
+  website?: string;
+  avaliacao?: number;
+  totalAvaliacoes?: number;
+  categoria?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const LeadsPage: React.FC = () => {
   const [formData, setFormData] = useState({
-    tipoEmpresa: '',
-    pais: 'BR',
-    localizacao: '',
-    idioma: 'pt-br',
-    quantidadeEmpresas: 10
+    tipoEmpresa: "",
+    localizacao: "",
+    quantidadeEmpresas: 20,
   });
 
-  const quantidadeOpcoes = [10, 20, 30, 50, 100, 500, 1000];
-  
+  const quantidadeOpcoes = [10, 20, 30, 50, 100];
+
   const [loading, setLoading] = useState(false);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   const [salvandoEmpresas, setSalvandoEmpresas] = useState(false);
   const [empresasSalvas, setEmpresasSalvas] = useState(false);
-  
-  const [locations, setLocations] = useState<Location[]>([]);
+
+  const [sugestoes, setSugestoes] = useState<string[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const locationInputRef = useRef<HTMLDivElement>(null);
+
+  // Convex actions e mutations
+  const buscarEmpresas = useAction(api.actions.captarEmpresas.buscarEmpresas);
+  const captarESalvar = useAction(api.actions.captarEmpresas.captarESalvar);
+  const buscarSugestoes = useAction(
+    api.actions.buscarLocalizacoes.buscarSugestoes
+  );
+  const listarCidades = useAction(
+    api.actions.buscarLocalizacoes.listarCidadesBrasileiras
+  );
 
   // Fechar dropdown quando clicar fora
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (locationInputRef.current && !locationInputRef.current.contains(event.target as Node)) {
+      if (
+        locationInputRef.current &&
+        !locationInputRef.current.contains(event.target as Node)
+      ) {
         setShowLocationDropdown(false);
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const searchLocations = async (query: string) => {
-    if (query.length < 1) {
-      setLocations([]);
+    if (query.length < 2) {
+      setSugestoes([]);
       setShowLocationDropdown(false);
       return;
     }
-    
+
     try {
       setLoadingLocations(true);
       setShowLocationDropdown(true);
-      
-      const { data, error } = await supabase.functions.invoke('location', {
-        body: { q: query }
-      });
 
-      if (error) {
-        console.error('Erro ao buscar localizações:', error);
-        setLocations([]);
-      } else if (data && Array.isArray(data)) {
-        setLocations(data);
+      const result = await buscarSugestoes({ query });
+
+      if (result.success && result.sugestoes) {
+        setSugestoes(result.sugestoes);
       } else {
-        setLocations([]);
+        // Fallback para lista de cidades
+        const cidadesResult = await listarCidades({});
+        const filtradas = cidadesResult.cidades.filter((c) =>
+          c.toLowerCase().includes(query.toLowerCase())
+        );
+        setSugestoes(filtradas.slice(0, 10));
       }
     } catch (error) {
-      console.error('Erro na busca:', error);
-      setLocations([]);
+      console.error("Erro na busca:", error);
+      setSugestoes([]);
     } finally {
       setLoadingLocations(false);
     }
@@ -83,68 +109,58 @@ const LeadsPage: React.FC = () => {
 
   const handleLocationSearch = (value: string) => {
     setFormData({ ...formData, localizacao: value });
-    
+
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
-    if (!value || value.length < 1) {
+
+    if (!value || value.length < 2) {
       setShowLocationDropdown(false);
-      setLocations([]);
+      setSugestoes([]);
       return;
     }
-    
+
     const newTimeout = setTimeout(() => {
       searchLocations(value);
     }, 300);
-    
+
     setSearchTimeout(newTimeout);
   };
 
-  const selectLocation = (location: Location) => {
-    const selectedLocation = location.canonicalName || location.name;
-    setFormData({ ...formData, localizacao: selectedLocation });
+  const selectLocation = (location: string) => {
+    setFormData({ ...formData, localizacao: location });
     setShowLocationDropdown(false);
-    setLocations([]);
+    setSugestoes([]);
   };
-
-  // Debug do estado do dropdown
-  useEffect(() => {
-    console.log('=== DEBUG DROPDOWN ===');
-    console.log('showLocationDropdown:', showLocationDropdown);
-    console.log('locationsCount:', locations.length);
-    console.log('loadingLocations:', loadingLocations);
-    console.log('inputValue:', formData.localizacao);
-    console.log('locations array:', locations);
-    console.log('Dropdown deveria aparecer?', showLocationDropdown && (loadingLocations || locations.length > 0 || formData.localizacao.length >= 1));
-    console.log('=====================');
-  }, [showLocationDropdown, locations, loadingLocations, formData.localizacao]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validar campos obrigatórios
+
     if (!formData.tipoEmpresa.trim()) {
-      setErrorMessage('Por favor, informe o tipo de empresa');
+      setErrorMessage("Por favor, informe o tipo de empresa");
       return;
     }
 
     setLoading(true);
-    setErrorMessage('');
+    setErrorMessage("");
     setEmpresasSalvas(false);
-    
+
     try {
-      const result = await captarEmpresas(formData);
-      
-      if (result.success && result.data) {
-        setEmpresas(result.data.empresas);
-        console.log('Empresas encontradas:', result.data.empresas);
+      const result = await buscarEmpresas({
+        termo: formData.tipoEmpresa,
+        localizacao: formData.localizacao || "Brasil",
+        limite: formData.quantidadeEmpresas,
+      });
+
+      if (result.success && result.empresas) {
+        setEmpresas(result.empresas);
+        console.log("Empresas encontradas:", result.empresas);
       } else {
-        setErrorMessage(result.error || 'Erro ao buscar empresas');
+        setErrorMessage(result.error || "Erro ao buscar empresas");
       }
     } catch (error) {
-      console.error('Erro na requisição:', error);
-      setErrorMessage('Erro de conexão. Tente novamente.');
+      console.error("Erro na requisição:", error);
+      setErrorMessage("Erro de conexão. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -152,32 +168,28 @@ const LeadsPage: React.FC = () => {
 
   const handleSalvarEmpresas = async () => {
     setSalvandoEmpresas(true);
-    setErrorMessage('');
-    
+    setErrorMessage("");
+
     try {
-      const result = await salvarEmpresas({
-        empresas,
-        parametrosBusca: {
-          tipoEmpresa: formData.tipoEmpresa,
-          localizacao: formData.localizacao || '',
-          pais: formData.pais,
-          idioma: formData.idioma,
-          quantidadeSolicitada: formData.quantidadeEmpresas
-        }
+      const result = await captarESalvar({
+        termo: formData.tipoEmpresa,
+        localizacao: formData.localizacao || "Brasil",
+        limite: formData.quantidadeEmpresas,
       });
-      
+
       if (result.success) {
         setEmpresasSalvas(true);
-        console.log('Empresas salvas:', result.empresasSalvas);
-        alert(`✅ ${result.message}`);
+        alert(
+          `Sucesso! ${result.inserted} empresas salvas (${result.duplicates} duplicatas ignoradas)`
+        );
       } else {
-        setErrorMessage(result.error || 'Erro ao salvar empresas');
-        alert(`❌ ${result.error}`);
+        setErrorMessage(result.error || "Erro ao salvar empresas");
+        alert(`Erro: ${result.error}`);
       }
     } catch (error) {
-      console.error('Erro ao salvar empresas:', error);
-      setErrorMessage('Erro de conexão ao salvar.');
-      alert('❌ Erro de conexão ao salvar empresas.');
+      console.error("Erro ao salvar empresas:", error);
+      setErrorMessage("Erro de conexão ao salvar.");
+      alert("Erro de conexão ao salvar empresas.");
     } finally {
       setSalvandoEmpresas(false);
     }
@@ -185,20 +197,21 @@ const LeadsPage: React.FC = () => {
 
   const handleExportarCSV = () => {
     const csvContent = [
-      ['Título', 'Endereço', 'Website', 'Telefone'],
-      ...empresas.map(empresa => [
-        empresa.title,
-        empresa.address || '',
-        empresa.website || '',
-        empresa.phoneNumber || ''
-      ])
+      ["Título", "Endereço", "Website", "Telefone", "Avaliação"],
+      ...empresas.map((empresa) => [
+        empresa.titulo,
+        empresa.endereco || "",
+        empresa.website || "",
+        empresa.telefone || "",
+        empresa.avaliacao?.toString() || "",
+      ]),
     ];
 
-    const csvString = csvContent.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8' });
-    const link = document.createElement('a');
+    const csvString = csvContent.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = 'leads.csv';
+    link.download = "leads.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -216,8 +229,12 @@ const LeadsPage: React.FC = () => {
         {/* Formulário de Busca */}
         <div className="bg-card border border-border rounded-xl p-4 mb-6">
           <div className="mb-4">
-            <h2 className="text-sm font-medium text-foreground">Buscar Leads</h2>
-            <p className="text-xs text-muted-foreground mt-1">Configure os parâmetros da busca</p>
+            <h2 className="text-sm font-medium text-foreground">
+              Buscar Leads
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure os parâmetros da busca
+            </p>
           </div>
 
           {errorMessage && (
@@ -235,17 +252,23 @@ const LeadsPage: React.FC = () => {
               <input
                 type="text"
                 value={formData.tipoEmpresa}
-                onChange={(e) => setFormData({ ...formData, tipoEmpresa: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, tipoEmpresa: e.target.value })
+                }
                 placeholder="Ex: clínicas médicas, restaurantes..."
                 className="w-full bg-card px-3 py-2 rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                 required
               />
             </div>
 
-            {/* Localização - Opcional */}
-            <div ref={locationInputRef} className="relative bg-background border border-border hover:border-accent/30 rounded-lg p-4 transition-colors">
+            {/* Localização */}
+            <div
+              ref={locationInputRef}
+              className="relative bg-background border border-border hover:border-accent/30 rounded-lg p-4 transition-colors"
+            >
               <label className="block text-xs font-medium text-muted-foreground mb-2">
-                Localização <span className="text-xs text-muted-foreground">(opcional)</span>
+                Localização{" "}
+                <span className="text-xs text-muted-foreground">(opcional)</span>
               </label>
               <input
                 type="text"
@@ -254,7 +277,7 @@ const LeadsPage: React.FC = () => {
                 placeholder="Digite a cidade"
                 className="w-full bg-card px-3 py-2 rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
               />
-              
+
               {/* Lista de Sugestões */}
               {showLocationDropdown && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -263,24 +286,19 @@ const LeadsPage: React.FC = () => {
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent mx-auto mb-2"></div>
                       Buscando localizações...
                     </div>
-                  ) : locations.length > 0 ? (
+                  ) : sugestoes.length > 0 ? (
                     <div className="py-1">
-                      {locations.map((location, index) => (
+                      {sugestoes.map((sugestao, index) => (
                         <button
-                          key={location.googleId || index}
-                          onClick={() => selectLocation(location)}
+                          key={index}
+                          onClick={() => selectLocation(sugestao)}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-accent/10 focus:bg-accent/10 focus:outline-none transition-colors"
                         >
-                          <span className="font-medium">{location.name}</span>
-                          {location.canonicalName && (
-                            <span className="block text-xs text-muted-foreground mt-0.5">
-                              {location.canonicalName}
-                            </span>
-                          )}
+                          <span className="font-medium">{sugestao}</span>
                         </button>
                       ))}
                     </div>
-                  ) : formData.localizacao.length > 0 ? (
+                  ) : formData.localizacao.length >= 2 ? (
                     <div className="p-3 text-center text-sm text-muted-foreground">
                       Nenhuma localização encontrada
                     </div>
@@ -296,7 +314,12 @@ const LeadsPage: React.FC = () => {
               </label>
               <select
                 value={formData.quantidadeEmpresas}
-                onChange={(e) => setFormData({ ...formData, quantidadeEmpresas: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    quantidadeEmpresas: parseInt(e.target.value),
+                  })
+                }
                 className="w-full bg-card px-3 py-2 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent appearance-none"
                 required
               >
@@ -311,11 +334,20 @@ const LeadsPage: React.FC = () => {
 
           <button
             onClick={handleSubmit}
-            disabled={!formData.tipoEmpresa.trim()}
+            disabled={!formData.tipoEmpresa.trim() || loading}
             className="w-full bg-accent text-accent-foreground h-12 rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Target size={16} />
-            Buscar Empresas
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent-foreground"></div>
+                Buscando...
+              </>
+            ) : (
+              <>
+                <Target size={16} />
+                Buscar Empresas
+              </>
+            )}
           </button>
         </div>
 
@@ -325,9 +357,9 @@ const LeadsPage: React.FC = () => {
             <div>
               <h2 className="text-sm font-medium text-foreground">Resultados</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {empresas.length > 0 
+                {empresas.length > 0
                   ? `${empresas.length} empresas encontradas`
-                  : 'Nenhuma empresa encontrada ainda'}
+                  : "Nenhuma empresa encontrada ainda"}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -335,10 +367,25 @@ const LeadsPage: React.FC = () => {
                 <>
                   <button
                     onClick={handleSalvarEmpresas}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+                    disabled={salvandoEmpresas || empresasSalvas}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
-                    <Save size={14} />
-                    Salvar no Banco
+                    {salvandoEmpresas ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-foreground"></div>
+                        Salvando...
+                      </>
+                    ) : empresasSalvas ? (
+                      <>
+                        <Save size={14} />
+                        Salvo!
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        Salvar no Banco
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={handleExportarCSV}
@@ -356,7 +403,9 @@ const LeadsPage: React.FC = () => {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent mx-auto mb-3"></div>
-                <p className="text-sm text-muted-foreground">Buscando empresas...</p>
+                <p className="text-sm text-muted-foreground">
+                  Buscando empresas...
+                </p>
               </div>
             </div>
           ) : empresas.length === 0 ? (
@@ -364,7 +413,9 @@ const LeadsPage: React.FC = () => {
               <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Target size={24} className="text-accent" />
               </div>
-              <h3 className="text-sm font-medium text-foreground mb-1">Configure sua busca</h3>
+              <h3 className="text-sm font-medium text-foreground mb-1">
+                Configure sua busca
+              </h3>
               <p className="text-xs text-muted-foreground">
                 Preencha os campos acima e clique em Buscar Empresas
               </p>
@@ -382,31 +433,31 @@ const LeadsPage: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-sm font-medium text-foreground truncate">
-                        {empresa.title}
+                        {empresa.titulo}
                       </h3>
-                      {empresa.address && (
+                      {empresa.endereco && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
                           <MapPin size={12} />
-                          <span className="truncate">{empresa.address}</span>
+                          <span className="truncate">{empresa.endereco}</span>
                         </p>
                       )}
                       {empresa.website && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
                           <Globe size={12} />
-                          <a 
-                            href={empresa.website} 
-                            target="_blank" 
+                          <a
+                            href={empresa.website}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-accent hover:underline truncate"
                           >
-                            {empresa.website.replace(/^https?:\/\//, '')}
+                            {empresa.website.replace(/^https?:\/\//, "")}
                           </a>
                         </p>
                       )}
-                      {empresa.phoneNumber && (
+                      {empresa.telefone && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
                           <Phone size={12} />
-                          <span className="truncate">{empresa.phoneNumber}</span>
+                          <span className="truncate">{empresa.telefone}</span>
                         </p>
                       )}
                     </div>
@@ -421,4 +472,4 @@ const LeadsPage: React.FC = () => {
   );
 };
 
-export default LeadsPage; 
+export default LeadsPage;
