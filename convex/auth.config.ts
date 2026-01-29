@@ -1,3 +1,14 @@
+// ============================================
+// MODO DE TESTE - AUTENTICAÇÃO DESATIVADA
+// Para reativar, descomente o código abaixo
+// ============================================
+
+export default {
+  providers: [],
+};
+
+/*
+// Configuração normal com Clerk
 export default {
   providers: [
     {
@@ -6,3 +17,4 @@ export default {
     },
   ],
 };
+*/

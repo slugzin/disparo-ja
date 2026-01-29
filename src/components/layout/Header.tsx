@@ -25,8 +25,8 @@ const Header: React.FC = () => {
     >
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <Link to="/" className="flex items-center">
-                      <span className="text-pink-400 text-2xl font-bold">Privadinho</span>
-            <span className="text-gray-400 text-sm ml-2">Espaço da putaria</span>
+          <span className="text-green-400 text-2xl font-bold">CaptaZap</span>
+          <span className="text-gray-400 text-sm ml-2">Captação de Leads</span>
         </Link>
 
         {/* Desktop Navigation */}

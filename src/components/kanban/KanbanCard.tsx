@@ -1,19 +1,19 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Star, MapPin, Phone, Globe, Calendar } from '../../utils/icons';
-import type { EmpresaBanco } from '../../services/edgeFunctions';
+import { Star, MapPin, Phone, Globe, MessageCircle } from 'lucide-react';
+import type { EmpresaKanban } from '../../types/kanban';
 
 interface KanbanCardProps {
-  empresa: EmpresaBanco;
-  onDisparar: (empresa: EmpresaBanco) => void;
+  empresa: EmpresaKanban;
+  onWhatsApp?: (empresa: EmpresaKanban) => void;
   isAContatar?: boolean;
   isDragging?: boolean;
 }
 
-export function KanbanCard({ empresa, onDisparar, isAContatar, isDragging }: KanbanCardProps) {
+export function KanbanCard({ empresa, onWhatsApp, isAContatar, isDragging }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: `empresa-${empresa.id}`,
+    id: `empresa-${empresa._id}`,
     data: empresa
   });
 
@@ -22,14 +22,30 @@ export function KanbanCard({ empresa, onDisparar, isAContatar, isDragging }: Kan
     transition: 'transform 0.2s ease-in-out'
   } : undefined;
 
-  const parseLinksAgendamento = (links?: string) => {
-    if (!links) return [];
-    try {
-      return JSON.parse(links) as string[];
-    } catch {
-      return [];
+  const formatarParaWhatsApp = (telefone: string) => {
+    const numeros = telefone.replace(/\D/g, '');
+    if (!numeros.startsWith('55')) {
+      return '55' + numeros;
+    }
+    return numeros;
+  };
+
+  const abrirWhatsApp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (empresa.telefone) {
+      const numero = formatarParaWhatsApp(empresa.telefone);
+      window.open(`https://wa.me/${numero}`, '_blank');
     }
   };
+
+  const ligar = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (empresa.telefone) {
+      window.open(`tel:${empresa.telefone}`, '_self');
+    }
+  };
+
+  const totalAvaliacoes = empresa.total_avaliacoes || empresa.totalAvaliacoes || 0;
 
   return (
     <div
@@ -46,107 +62,89 @@ export function KanbanCard({ empresa, onDisparar, isAContatar, isDragging }: Kan
       `}
     >
       {/* Card Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="text-base font-semibold text-foreground line-clamp-2 mb-2">{empresa.titulo}</h3>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-1 bg-accent/10 text-accent text-xs rounded-full font-medium">
-                {empresa.categoria || 'Sem categoria'}
-              </span>
-            </div>
+      <div className="p-3 border-b border-border">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1">{empresa.titulo}</h3>
+            <span className="inline-block px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full font-medium truncate max-w-full">
+              {empresa.categoria || 'Sem categoria'}
+            </span>
           </div>
         </div>
 
         {/* Avaliação */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex items-center gap-1">
-            <Star size={14} className="text-yellow-500" />
-            <span className="text-foreground font-medium text-sm">{empresa.avaliacao || 'N/A'}</span>
+        {empresa.avaliacao && (
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1">
+              <Star size={12} className="text-yellow-500 fill-yellow-500" />
+              <span className="text-foreground font-medium text-xs">{empresa.avaliacao}</span>
+            </div>
+            {totalAvaliacoes > 0 && (
+              <span className="text-muted-foreground text-xs">
+                ({totalAvaliacoes})
+              </span>
+            )}
           </div>
-          {empresa.total_avaliacoes > 0 && (
-            <span className="text-muted-foreground text-xs">
-              ({empresa.total_avaliacoes} {empresa.total_avaliacoes === 1 ? 'avaliação' : 'avaliações'})
-            </span>
-          )}
-        </div>
+        )}
 
         {/* Endereço */}
         {empresa.endereco && (
           <div className="flex items-start gap-1.5 text-muted-foreground text-xs">
-            <MapPin size={12} className="mt-0.5 flex-shrink-0" />
-            <span className="line-clamp-2">{empresa.endereco}</span>
+            <MapPin size={10} className="mt-0.5 flex-shrink-0" />
+            <span className="line-clamp-1">{empresa.endereco}</span>
           </div>
         )}
       </div>
 
       {/* Card Body */}
-      <div className="p-4">
+      <div className="p-3">
         {/* Contatos */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-1.5 mb-3">
           {empresa.telefone && (
             <div className="flex items-center gap-2">
-              <Phone size={14} className="text-green-500" />
-              <a 
-                href={`tel:${empresa.telefone}`}
-                className="text-green-500 hover:text-green-400 transition-colors text-sm"
-              >
-                {empresa.telefone}
-              </a>
+              <Phone size={12} className="text-green-500" />
+              <span className="text-muted-foreground text-xs truncate">{empresa.telefone}</span>
             </div>
           )}
 
           {empresa.website && (
             <div className="flex items-center gap-2">
-              <Globe size={14} className="text-blue-500" />
-              <a 
-                href={empresa.website}
+              <Globe size={12} className="text-blue-500" />
+              <a
+                href={empresa.website.startsWith('http') ? empresa.website : `https://${empresa.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-500 hover:text-blue-400 transition-colors text-sm truncate"
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-500 hover:text-blue-400 transition-colors text-xs truncate"
               >
-                {empresa.website.replace(/^https?:\/\//, '')}
-              </a>
-            </div>
-          )}
-
-          {parseLinksAgendamento(empresa.links_agendamento).length > 0 && (
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-purple-500" />
-              <a 
-                href={parseLinksAgendamento(empresa.links_agendamento)[0]}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-500 hover:text-purple-400 transition-colors text-sm"
-              >
-                Agendamento Online
+                {empresa.website.replace(/^https?:\/\//, '').slice(0, 25)}
               </a>
             </div>
           )}
         </div>
 
-        {/* Botão de Ação */}
-        {isAContatar && (
-          <button
-            onClick={() => onDisparar(empresa)}
-            className="
-              w-full px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium 
-              hover:bg-accent/90 transition-all duration-300
-              transform hover:scale-[1.02]
-              relative overflow-hidden group/btn
-            "
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
-            <div className="relative flex items-center justify-center gap-2">
-              <span className="transform group-hover/btn:rotate-12 transition-transform duration-300">🚀</span>
-              <span>Disparar Mensagem</span>
-            </div>
-          </button>
+        {/* Botões de Ação */}
+        {empresa.telefone && (
+          <div className="flex gap-2">
+            <button
+              onClick={abrirWhatsApp}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              <MessageCircle size={14} />
+              WhatsApp
+            </button>
+            <button
+              onClick={ligar}
+              className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <Phone size={14} />
+            </button>
+          </div>
         )}
       </div>
 
       {/* Efeito de Hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/0 opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 pointer-events-none" />
     </div>
   );
-} 
+}

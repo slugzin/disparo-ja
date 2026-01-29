@@ -1,100 +1,85 @@
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 
-export type EmpresaStatus =
-  | "a_contatar"
-  | "contato_realizado"
-  | "sem_interesse"
-  | "negociando"
-  | "convertido";
-
-export interface Empresa {
-  _id: Id<"empresas">;
-  titulo: string;
-  endereco?: string;
-  categoria?: string;
-  telefone?: string;
-  website?: string;
-  avaliacao?: number;
-  totalAvaliacoes?: number;
-  placeId?: string;
-  latitude?: number;
-  longitude?: number;
-  pesquisa?: string;
-  status: EmpresaStatus;
-  capturadoEm: number;
-  ultimoContato?: number;
-  notas?: string;
+// Hook para listar empresas
+export function useEmpresas(limit?: number) {
+  const empresas = useQuery(api.queries.empresas.list, { limit });
+  return empresas;
 }
 
-export function useEmpresas() {
-  // Queries
-  const empresas = useQuery(api.queries.empresas.list, {});
-  const funilStats = useQuery(api.queries.empresas.getFunilStats);
-  const modalidades = useQuery(api.queries.empresas.listModalidades);
-  const pesquisas = useQuery(api.queries.empresas.listPesquisas);
-
-  // Mutations
-  const createEmpresa = useMutation(api.mutations.empresas.create);
-  const createManyEmpresas = useMutation(api.mutations.empresas.createMany);
-  const updateEmpresa = useMutation(api.mutations.empresas.update);
-  const updateStatus = useMutation(api.mutations.empresas.updateStatus);
-  const updateManyStatus = useMutation(api.mutations.empresas.updateManyStatus);
-  const removeEmpresa = useMutation(api.mutations.empresas.remove);
-  const removeManyEmpresas = useMutation(api.mutations.empresas.removeMany);
-
-  // Actions
-  const buscarEmpresas = useAction(api.actions.captarEmpresas.buscarEmpresas);
-  const captarESalvar = useAction(api.actions.captarEmpresas.captarESalvar);
-
-  const isLoading = empresas === undefined;
-
-  return {
-    // Data
-    empresas: empresas || [],
-    funilStats,
-    modalidades: modalidades || [],
-    pesquisas: pesquisas || [],
-    isLoading,
-
-    // Mutations
-    createEmpresa,
-    createManyEmpresas,
-    updateEmpresa,
-    updateStatus,
-    updateManyStatus,
-    removeEmpresa,
-    removeManyEmpresas,
-
-    // Actions
-    buscarEmpresas,
-    captarESalvar,
-  };
+// Hook para buscar empresa por ID
+export function useEmpresaById(id: Id<"empresas">) {
+  return useQuery(api.queries.empresas.getById, { id });
 }
 
-// Hook para buscar empresas com filtros
-export function useEmpresasWithFilters(filters: {
-  status?: EmpresaStatus;
+// Hook para listar empresas por status
+export function useEmpresasByStatus(
+  status:
+    | "a_contatar"
+    | "contato_realizado"
+    | "sem_interesse"
+    | "negociando"
+    | "convertido"
+) {
+  return useQuery(api.queries.empresas.listByStatus, { status });
+}
+
+// Hook para listar pesquisas únicas
+export function usePesquisas() {
+  return useQuery(api.queries.empresas.listPesquisas);
+}
+
+// Hook para listar modalidades
+export function useModalidades() {
+  return useQuery(api.queries.empresas.listModalidades);
+}
+
+// Hook para estatísticas do funil
+export function useFunilStats() {
+  return useQuery(api.queries.empresas.getFunilStats);
+}
+
+// Hook para listar empresas com filtros
+export function useEmpresasComFiltros(filtros?: {
+  status?:
+    | "a_contatar"
+    | "contato_realizado"
+    | "sem_interesse"
+    | "negociando"
+    | "convertido";
   pesquisa?: string;
   categoria?: string;
   limit?: number;
 }) {
-  const empresas = useQuery(api.queries.empresas.listWithFilters, filters);
-  return {
-    empresas: empresas || [],
-    isLoading: empresas === undefined,
-  };
+  return useQuery(api.queries.empresas.listWithFilters, filtros || {});
 }
 
-// Hook para buscar empresa por ID
-export function useEmpresa(id: Id<"empresas"> | undefined) {
-  const empresa = useQuery(
-    api.queries.empresas.getById,
-    id ? { id } : "skip"
-  );
-  return {
-    empresa,
-    isLoading: id ? empresa === undefined : false,
-  };
+// Hooks de mutations
+export function useCreateEmpresa() {
+  return useMutation(api.mutations.empresas.create);
+}
+
+export function useCreateManyEmpresas() {
+  return useMutation(api.mutations.empresas.createMany);
+}
+
+export function useUpdateEmpresa() {
+  return useMutation(api.mutations.empresas.update);
+}
+
+export function useUpdateEmpresaStatus() {
+  return useMutation(api.mutations.empresas.updateStatus);
+}
+
+export function useUpdateManyEmpresasStatus() {
+  return useMutation(api.mutations.empresas.updateManyStatus);
+}
+
+export function useRemoveEmpresa() {
+  return useMutation(api.mutations.empresas.remove);
+}
+
+export function useRemoveManyEmpresas() {
+  return useMutation(api.mutations.empresas.removeMany);
 }

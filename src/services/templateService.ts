@@ -1,107 +1,60 @@
-import { supabase } from '../lib/supabase';
+// DEPRECADO: Este serviço está sendo substituído pelos hooks do Convex
+// Use os hooks em src/hooks/useTemplates.ts ao invés deste serviço
+
+import { Id } from '../../convex/_generated/dataModel';
 
 export interface MessageTemplate {
   id: number;
+  _id?: Id<"messageTemplates">;
   name: string;
   content: string;
   preview: string;
+  categoria?: string;
   created_at: string;
   updated_at: string;
 }
 
+// NOTA: Este service está DEPRECADO
+// Use os hooks do Convex diretamente:
+// - useTemplates() para listar
+// - useCreateTemplate() para criar
+// - useUpdateTemplate() para atualizar
+// - useRemoveTemplate() para deletar
+
 export const templateService = {
-  // Listar todos os templates
+  // Função deprecada - use useTemplates() do Convex
   async listTemplates(): Promise<{ success: boolean; data?: MessageTemplate[]; error?: string }> {
-    try {
-      console.log('📝 Buscando templates...');
-      
-      const { data, error } = await supabase
-        .from('message_templates')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao buscar templates:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Templates carregados:', data?.length || 0);
-      return { success: true, data };
-    } catch (error) {
-      console.error('Erro ao listar templates:', error);
-      return { success: false, error: 'Erro interno' };
-    }
+    console.warn('DEPRECATION: templateService.listTemplates() está deprecada. Use useTemplates() do Convex.');
+    return {
+      success: false,
+      error: 'Este serviço está deprecado. Use os hooks do Convex.'
+    };
   },
 
-  // Criar novo template
-  async createTemplate(template: { name: string; content: string; preview: string }): Promise<{ success: boolean; data?: MessageTemplate; error?: string }> {
-    try {
-      console.log('📝 Criando template:', template.name);
-      
-      const { data, error } = await supabase
-        .from('message_templates')
-        .insert(template)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro ao criar template:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Template criado:', data);
-      return { success: true, data };
-    } catch (error) {
-      console.error('Erro ao criar template:', error);
-      return { success: false, error: 'Erro interno' };
-    }
+  // Função deprecada - use useCreateTemplate() do Convex
+  async createTemplate(_template: { name: string; content: string; preview: string }): Promise<{ success: boolean; data?: MessageTemplate; error?: string }> {
+    console.warn('DEPRECATION: templateService.createTemplate() está deprecada. Use useCreateTemplate() do Convex.');
+    return {
+      success: false,
+      error: 'Este serviço está deprecado. Use os hooks do Convex.'
+    };
   },
 
-  // Atualizar template
-  async updateTemplate(id: number, template: { name: string; content: string; preview: string }): Promise<{ success: boolean; data?: MessageTemplate; error?: string }> {
-    try {
-      console.log('📝 Atualizando template:', id);
-      
-      const { data, error } = await supabase
-        .from('message_templates')
-        .update(template)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro ao atualizar template:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Template atualizado:', data);
-      return { success: true, data };
-    } catch (error) {
-      console.error('Erro ao atualizar template:', error);
-      return { success: false, error: 'Erro interno' };
-    }
+  // Função deprecada - use useUpdateTemplate() do Convex
+  async updateTemplate(_id: number, _template: { name: string; content: string; preview: string }): Promise<{ success: boolean; data?: MessageTemplate; error?: string }> {
+    console.warn('DEPRECATION: templateService.updateTemplate() está deprecada. Use useUpdateTemplate() do Convex.');
+    return {
+      success: false,
+      error: 'Este serviço está deprecado. Use os hooks do Convex.'
+    };
   },
 
-  // Deletar template
-  async deleteTemplate(id: number): Promise<{ success: boolean; error?: string }> {
-    try {
-      console.log('📝 Deletando template:', id);
-      
-      const { error } = await supabase
-        .from('message_templates')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Erro ao deletar template:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Template deletado:', id);
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao deletar template:', error);
-      return { success: false, error: 'Erro interno' };
-    }
+  // Função deprecada - use useRemoveTemplate() do Convex
+  async deleteTemplate(_id: number): Promise<{ success: boolean; error?: string }> {
+    console.warn('DEPRECATION: templateService.deleteTemplate() está deprecada. Use useRemoveTemplate() do Convex.');
+    return {
+      success: false,
+      error: 'Este serviço está deprecado. Use os hooks do Convex.'
+    };
   }
-}; 
+};

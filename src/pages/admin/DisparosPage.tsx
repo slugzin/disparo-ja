@@ -21,8 +21,9 @@ import {
   CheckCircle,
   Clock
 } from '../../utils/icons';
-import { templateService, MessageTemplate } from '../../services/templateService';
-import { supabase } from '../../lib/supabase';
+import { MessageTemplate } from '../../services/templateService';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { useFiltros } from '../../contexts/FiltrosContext';
 import PageHeader from '../../components/ui/PageHeader';
 
@@ -66,14 +67,20 @@ const DisparosPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { filtrosAtivos } = useFiltros();
-  
+
+  // Queries do Convex
+  const empresasConvex = useQuery(api.queries.empresas.list);
+  const templatesConvex = useQuery(api.queries.templates.list);
+  const connectionsConvex = useQuery(api.queries.whatsappInstances.listConnected);
+  const agendarDisparos = useMutation(api.mutations.disparos.agendarDisparos);
+
   const [modalidades, setModalidades] = useState<string[]>([]);
   const [modalidadeSelecionada, setModalidadeSelecionada] = useState<string | null>(null);
   const [kanbanSegments, setKanbanSegments] = useState<KanbanSegment[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<KanbanSegment | null>(null);
   const [empresasSegmento, setEmpresasSegmento] = useState<any[]>([]);
-  const [selecionadas, setSelecionadas] = useState<number[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [selecionadas, setSelecionadas] = useState<string[]>([]);
+  const isLoading = empresasConvex === undefined;
   
   // Filtros Avançados
   const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false);
@@ -135,98 +142,90 @@ const DisparosPage: React.FC = () => {
     };
   }, [showDisparoConfig]);
 
-  // Carregar dados iniciais
+  // Verificar se há empresa selecionada do kanban
   useEffect(() => {
-    loadInitialData();
-
-    // Verificar se há empresa selecionada do kanban
     const locationState = location.state as any;
     if (locationState?.empresaSelecionada) {
       const empresa = locationState.empresaSelecionada;
       const modalidade = locationState.modalidadeSelecionada || 'todas';
-      
+
       // Salvar empresa para mostrar visual feedback
       setEmpresaVindaDoKanban(empresa);
-      
+
       // Configurar modalidade e empresa automaticamente
       setModalidadeSelecionada(modalidade);
-      
+
       // Aguardar um pouco para os dados carregarem e então pré-selecionar a empresa
       setTimeout(() => {
-        setSelecionadas([empresa.id]);
+        setSelecionadas([empresa._id || empresa.id]);
       }, 1000);
     }
-  }, []);
+  }, [location.state]);
+
+  // Carregar dados do Convex quando disponíveis
+  useEffect(() => {
+    if (empresasConvex) {
+      // Extrair modalidades únicas
+      const modalidadesUnicas = [...new Set(
+        empresasConvex.filter(e => e.pesquisa).map(e => e.pesquisa!)
+      )];
+      setModalidades(modalidadesUnicas);
+
+      // Extrair cidades e categorias para filtros
+      const cidades = [...new Set(
+        empresasConvex
+          .filter(e => e.endereco)
+          .map(e => {
+            const partes = e.endereco!.split(',');
+            return partes[partes.length - 2]?.trim().split(' - ')[0];
+          })
+          .filter(Boolean)
+      )].sort() as string[];
+
+      const categorias = [...new Set(
+        empresasConvex.filter(e => e.categoria).map(e => e.categoria!)
+      )].sort();
+
+      setCidadesDisponiveis(cidades);
+      setCategoriasDisponiveis(categorias);
+    }
+  }, [empresasConvex]);
+
+  // Atualizar connections e templates do Convex
+  useEffect(() => {
+    if (connectionsConvex) {
+      const conns: WhatsAppConnection[] = connectionsConvex.map(c => ({
+        id: c._id,
+        instance_name: c.instanceName,
+        instance_id: c.instanceId,
+        status: c.status
+      }));
+      setConnections(conns);
+    }
+  }, [connectionsConvex]);
+
+  useEffect(() => {
+    if (templatesConvex) {
+      const temps: MessageTemplate[] = templatesConvex.map(t => ({
+        id: 0,
+        _id: t._id,
+        name: t.nome,
+        content: t.conteudo,
+        preview: t.conteudo.substring(0, 100),
+        categoria: t.categoria,
+        created_at: new Date(t.criadoEm).toISOString(),
+        updated_at: new Date(t.atualizadoEm).toISOString()
+      }));
+      setTemplates(temps);
+    }
+  }, [templatesConvex]);
 
   // Recarregar quando modalidade ou filtros mudarem
   useEffect(() => {
-    if (modalidadeSelecionada) {
+    if (modalidadeSelecionada && empresasConvex) {
       loadKanbanData();
     }
-  }, [modalidadeSelecionada, filtrosAtivos, filtrosAvancados]);
-
-  const loadInitialData = async () => {
-    setIsLoading(true);
-    try {
-      // Carregar modalidades
-      const { data: empresasData } = await supabase
-        .from('empresas')
-        .select('pesquisa')
-        .not('pesquisa', 'is', null);
-
-      if (empresasData) {
-        const modalidadesUnicas = [...new Set(empresasData.map(e => e.pesquisa))];
-      setModalidades(modalidadesUnicas);
-      }
-
-      // Carregar cidades e categorias para filtros
-      const { data: allEmpresas } = await supabase
-        .from('empresas')
-        .select('endereco, categoria');
-
-      if (allEmpresas) {
-        // Extrair cidades únicas
-        const cidades = [...new Set(
-          allEmpresas
-            .filter(e => e.endereco)
-            .map(e => {
-              const partes = e.endereco.split(',');
-              return partes[partes.length - 2]?.trim().split(' - ')[0];
-            })
-            .filter(Boolean)
-        )].sort();
-
-        // Extrair categorias únicas
-        const categorias = [...new Set(
-          allEmpresas
-            .filter(e => e.categoria)
-            .map(e => e.categoria)
-        )].sort();
-
-        setCidadesDisponiveis(cidades);
-        setCategoriasDisponiveis(categorias);
-      }
-
-      // Carregar conexões WhatsApp
-      const { data: connectionsData } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .eq('status', 'connected');
-
-      if (connectionsData) {
-        setConnections(connectionsData);
-      }
-
-      // Carregar templates
-      const templatesResult = await templateService.listTemplates();
-      if (templatesResult.success && templatesResult.data) {
-        setTemplates(templatesResult.data);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    }
-    setIsLoading(false);
-  };
+  }, [modalidadeSelecionada, filtrosAtivos, filtrosAvancados, empresasConvex]);
 
   const aplicarFiltros = (empresas: any[]) => {
     let empresasFiltradas = [...empresas];
@@ -292,86 +291,85 @@ const DisparosPage: React.FC = () => {
     return empresasFiltradas;
   };
 
-  const loadKanbanData = async () => {
-    try {
-      let query = supabase
-        .from('empresas')
-        .select('*')
-        .order('capturado_em', { ascending: false });
+  const loadKanbanData = () => {
+    if (!empresasConvex) return;
 
-      if (modalidadeSelecionada && modalidadeSelecionada !== 'todas') {
-        query = query.eq('pesquisa', modalidadeSelecionada);
-      }
+    // Converter para formato legado e filtrar por modalidade
+    let empresas = empresasConvex.map(e => ({
+      ...e,
+      id: e._id,
+      capturado_em: new Date(e.capturadoEm).toISOString(),
+      total_avaliacoes: e.totalAvaliacoes
+    }));
 
-      const { data: empresas } = await query;
-      if (!empresas) return;
-
-      // Aplicar filtros avançados
-      const empresasFiltradas = aplicarFiltros(empresas);
-
-      // Processar segmentos
-      const segments: KanbanSegment[] = [
-        {
-          id: 'a_contatar',
-          title: 'A Contatar',
-          count: empresasFiltradas.filter(e => e.status === 'a_contatar').length,
-          description: 'Novos leads prontos para primeiro contato',
-          status: 'a_contatar'
-        },
-        {
-          id: 'contato_realizado',
-          title: 'Follow-up',
-          count: empresasFiltradas.filter(e => e.status === 'contato_realizado').length,
-          description: 'Leads que precisam de acompanhamento',
-          status: 'contato_realizado'
-        },
-        {
-          id: 'em_negociacao',
-          title: 'Em Negociação',
-          count: empresasFiltradas.filter(e => e.status === 'em_negociacao').length,
-          description: 'Leads ativos em processo de negociação',
-          status: 'em_negociacao'
-        }
-      ];
-
-      setKanbanSegments(segments.filter(s => s.count > 0));
-    } catch (error) {
-      console.error('Erro ao carregar dados do kanban:', error);
+    if (modalidadeSelecionada && modalidadeSelecionada !== 'todas') {
+      empresas = empresas.filter(e => e.pesquisa === modalidadeSelecionada);
     }
+
+    // Aplicar filtros avançados
+    const empresasFiltradas = aplicarFiltros(empresas);
+
+    // Processar segmentos
+    const segments: KanbanSegment[] = [
+      {
+        id: 'a_contatar',
+        title: 'A Contatar',
+        count: empresasFiltradas.filter(e => e.status === 'a_contatar').length,
+        description: 'Novos leads prontos para primeiro contato',
+        status: 'a_contatar'
+      },
+      {
+        id: 'contato_realizado',
+        title: 'Follow-up',
+        count: empresasFiltradas.filter(e => e.status === 'contato_realizado').length,
+        description: 'Leads que precisam de acompanhamento',
+        status: 'contato_realizado'
+      },
+      {
+        id: 'negociando',
+        title: 'Em Negociação',
+        count: empresasFiltradas.filter(e => e.status === 'negociando').length,
+        description: 'Leads ativos em processo de negociação',
+        status: 'negociando'
+      }
+    ];
+
+    setKanbanSegments(segments.filter(s => s.count > 0));
   };
 
   // Carregar empresas do segmento
   useEffect(() => {
-    if (selectedSegment && modalidadeSelecionada) {
+    if (selectedSegment && modalidadeSelecionada && empresasConvex) {
       loadEmpresasSegmento();
     }
-  }, [selectedSegment, modalidadeSelecionada, filtrosAtivos, filtrosAvancados]);
+  }, [selectedSegment, modalidadeSelecionada, filtrosAtivos, filtrosAvancados, empresasConvex]);
 
-  const loadEmpresasSegmento = async () => {
-    try {
-      let query = supabase
-        .from('empresas')
-        .select('*')
-        .eq('status', selectedSegment!.status)
-        .order('capturado_em', { ascending: false });
+  const loadEmpresasSegmento = () => {
+    if (!empresasConvex || !selectedSegment) return;
 
-      if (modalidadeSelecionada && modalidadeSelecionada !== 'todas') {
-        query = query.eq('pesquisa', modalidadeSelecionada);
-      }
+    // Converter para formato legado e filtrar
+    let empresas = empresasConvex.map(e => ({
+      ...e,
+      id: e._id,
+      capturado_em: new Date(e.capturadoEm).toISOString(),
+      total_avaliacoes: e.totalAvaliacoes
+    }));
 
-      const { data: empresas } = await query;
-      if (empresas) {
-        const empresasFiltradas = aplicarFiltros(empresas);
-        setEmpresasSegmento(empresasFiltradas);
-        // Pré-selecionar todas as empresas por padrão
-        setSelecionadas(empresasFiltradas.map(e => e.id));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar empresas do segmento:', error);
+    // Filtrar por status
+    empresas = empresas.filter(e => e.status === selectedSegment.status);
+
+    // Filtrar por modalidade
+    if (modalidadeSelecionada && modalidadeSelecionada !== 'todas') {
+      empresas = empresas.filter(e => e.pesquisa === modalidadeSelecionada);
     }
+
+    const empresasFiltradas = aplicarFiltros(empresas);
+    setEmpresasSegmento(empresasFiltradas);
+    // Pré-selecionar todas as empresas por padrão
+    setSelecionadas(empresasFiltradas.map(e => e._id));
   };
 
-  const toggleSelecionada = (id: number) => {
+  const toggleSelecionada = (id: string) => {
     setSelecionadas(prev => {
       if (prev.includes(id)) {
         return prev.filter(item => item !== id);
@@ -383,32 +381,28 @@ const DisparosPage: React.FC = () => {
 
   const handleLaunch = async () => {
     if (!selectedConnection || !customMessage.trim()) return;
-    
+
     setIsLaunching(true);
-    
+
     // Fechar modal de configuração e mostrar animação
     setShowDisparoConfig(false);
     setShowDispatchAnimation(true);
-    
+
     try {
-      const { data, error } = await supabase.rpc('agendar_disparos', {
-        p_empresa_ids: selecionadas,
-        p_mensagem: customMessage,
-        p_conexao_id: selectedConnection,
-        p_tipo_midia: 'nenhum',
-        p_midia_url: null,
-        p_delay_segundos: delay,
-        p_nome_campanha: nomeCampanha.trim() || null
+      const result = await agendarDisparos({
+        empresaIds: selecionadas as any,
+        mensagem: customMessage,
+        conexaoId: selectedConnection,
+        delaySegundos: delay,
+        nomeCampanha: nomeCampanha.trim() || undefined
       });
 
-      if (error) throw error;
-
-      if (data.success) {
+      if (result.success) {
         // Calcular tempo estimado
-        const tempoTotalMinutos = Math.ceil((data.tasks_criadas * delay) / 60);
+        const tempoTotalMinutos = Math.ceil((result.tasksCriadas * delay) / 60);
         const horas = Math.floor(tempoTotalMinutos / 60);
         const minutos = tempoTotalMinutos % 60;
-        
+
         let tempoEstimado = '';
         if (horas > 0) {
           tempoEstimado = `${horas}h ${minutos}min`;
@@ -418,12 +412,12 @@ const DisparosPage: React.FC = () => {
 
         // Aguardar animação por 3 segundos
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
+
         // Configurar dados da campanha
         setDispatchStats({
-          campanhaId: data.campanha_id,
+          campanhaId: result.campanhaId,
           totalEmpresas: selecionadas.length,
-          tasksAgendadas: data.tasks_criadas,
+          tasksAgendadas: result.tasksCriadas,
           delaySegundos: delay,
           tempoEstimado: tempoEstimado
         });
@@ -433,10 +427,10 @@ const DisparosPage: React.FC = () => {
         setShowSuccessScreen(true);
 
         // Limpar estados
-          setSelectedSegment(null);
-          setSelectedConnection(null);
-          setCustomMessage('');
-          setNomeCampanha('');
+        setSelectedSegment(null);
+        setSelectedConnection(null);
+        setCustomMessage('');
+        setNomeCampanha('');
         setSelecionadas([]);
 
       } else {
@@ -446,7 +440,7 @@ const DisparosPage: React.FC = () => {
       setShowDispatchAnimation(false);
       alert('Erro: ' + error.message);
     }
-      setIsLaunching(false);
+    setIsLaunching(false);
   };
 
   const temFiltrosAtivos = () => {

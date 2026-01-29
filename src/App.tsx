@@ -5,16 +5,11 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { ClerkProvider, SignIn, SignUp } from "@clerk/clerk-react";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { useAuth } from "@clerk/clerk-react";
 
 import { AdminProvider } from "./context/AdminContext";
-import { ConvexUserProvider } from "./contexts/ConvexUserContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { FiltrosProvider } from "./contexts/FiltrosContext";
-import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 import HomePage from "./pages/HomePage";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -23,25 +18,18 @@ import LeadsPage from "./pages/admin/LeadsPage";
 import EmpresasPage from "./pages/admin/EmpresasPage";
 import ConexoesPage from "./pages/admin/ConexoesPage";
 import DisparosPage from "./pages/admin/DisparosPage";
-import BancoDadosPage from "./pages/admin/BancoDadosPage";
 import DisparosHistoricoPage from "./pages/admin/DisparosHistoricoPage";
 import ConversasPage from "./pages/admin/ConversasPage";
 import FluxosPage from "./pages/admin/FluxosPage";
 
+// ============================================
+// MODO DE TESTE - CLERK DESATIVADO
+// Para reativar o Clerk, mude para false
+const DISABLE_CLERK = true;
+// ============================================
+
 // Configuração do Convex
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-// Chave pública do Clerk
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
-
-// Componente de layout para autenticação
-function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      {children}
-    </div>
-  );
-}
 
 function AppRoutes() {
   return (
@@ -50,33 +38,12 @@ function AppRoutes() {
         {/* Página inicial */}
         <Route path="/" element={<HomePage />} />
 
-        {/* Páginas de autenticação Clerk */}
-        <Route
-          path="/login"
-          element={
-            <AuthLayout>
-              <SignIn routing="path" path="/login" afterSignInUrl="/admin" />
-            </AuthLayout>
-          }
-        />
-        <Route
-          path="/cadastro"
-          element={
-            <AuthLayout>
-              <SignUp routing="path" path="/cadastro" afterSignUpUrl="/admin" />
-            </AuthLayout>
-          }
-        />
+        {/* Login temporário - redireciona direto para admin */}
+        <Route path="/login" element={<Navigate to="/admin" replace />} />
+        <Route path="/cadastro" element={<Navigate to="/admin" replace />} />
 
-        {/* Admin Routes - Protegidas */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
+        {/* Admin Routes - SEM proteção durante testes */}
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="disparos" element={<DisparosPage />} />
@@ -95,6 +62,24 @@ function AppRoutes() {
 }
 
 function App() {
+  // Modo de teste sem Clerk
+  if (DISABLE_CLERK) {
+    return (
+      <ConvexProvider client={convex}>
+        <ThemeProvider>
+          <AdminProvider>
+            <FiltrosProvider>
+              <AppRoutes />
+            </FiltrosProvider>
+          </AdminProvider>
+        </ThemeProvider>
+      </ConvexProvider>
+    );
+  }
+
+  // Modo normal com Clerk (desativado temporariamente)
+  // Para reativar, mude DISABLE_CLERK para false e descomente o código abaixo
+  /*
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
@@ -110,6 +95,9 @@ function App() {
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );
+  */
+
+  return null;
 }
 
 export default App;

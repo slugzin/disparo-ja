@@ -1,54 +1,30 @@
 import React from 'react';
 import { DragOverlay as DndDragOverlay } from '@dnd-kit/core';
 import { KanbanCard } from './KanbanCard';
-import type { EmpresaBanco } from '../../services/edgeFunctions';
+import type { EmpresaKanban } from '../../types/kanban';
 
 interface DragOverlayProps {
-  draggedItem: EmpresaBanco | null;
-  onDisparar: (empresa: EmpresaBanco) => void;
+  draggedItem: EmpresaKanban | null;
 }
 
-export function DragOverlay({ draggedItem, onDisparar }: DragOverlayProps) {
+export function DragOverlay({ draggedItem }: DragOverlayProps) {
   if (!draggedItem) return null;
 
   return (
     <DndDragOverlay dropAnimation={{
-      duration: 500,
+      duration: 300,
       easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
-      sideEffects: defaultDropAnimationSideEffects({
-        styles: {
-          active: {
-            opacity: '0.4',
-          },
-        },
-      }),
     }}>
       <div style={{
-        transform: 'rotate(-3deg) scale(1.02)',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        transform: 'rotate(-2deg) scale(1.05)',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+        width: '280px',
       }}>
         <KanbanCard
           empresa={draggedItem}
-          onDisparar={onDisparar}
           isDragging
         />
       </div>
     </DndDragOverlay>
   );
 }
-
-// Efeitos visuais durante o drag
-function defaultDropAnimationSideEffects({ styles }: any) {
-  return {
-    Start({ active }: any) {
-      if (!active.node) return;
-
-      active.node.style.opacity = styles.active.opacity;
-    },
-    End({ active }: any) {
-      if (!active.node) return;
-
-      active.node.style.opacity = '';
-    },
-  };
-} 

@@ -105,16 +105,11 @@ const AdminLayout: React.FC = () => {
           `}>
             <Link to="/" className="flex items-center gap-2 min-w-0 group">
               <div className="relative">
-                <span className="text-3xl font-bold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">
-                  {isExpanded ? 'Prospect' : 'P'}
+                <span className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                  {isExpanded ? 'CaptaZap' : 'CZ'}
                 </span>
-                <Target size={12} className="absolute -top-1 -right-1 text-accent animate-pulse" />
+                <MessageCircle size={12} className="absolute -top-1 -right-1 text-green-500 animate-pulse" />
               </div>
-              {isExpanded && (
-                <span className="text-xs text-accent bg-gradient-to-r from-accent/20 to-primary/20 border border-accent/30 px-2 py-1 rounded-lg backdrop-blur-sm">
-                  CRM
-                </span>
-              )}
             </Link>
             {isExpanded && (
               <ThemeSwitcher size="sm" />

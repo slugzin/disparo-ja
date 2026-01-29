@@ -1,108 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { KanbanColumn } from './KanbanColumn';
 import { DragOverlay } from './DragOverlay';
-import { useKanban } from '../../hooks/useKanban';
-import type { EmpresaBanco } from '../../services/edgeFunctions';
-import type { KanbanStatus } from '../../types/kanban';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { Id } from '../../../convex/_generated/dataModel';
+import { KANBAN_COLUMNS, type EmpresaKanban, type KanbanStatus, type KanbanColumn as IKanbanColumn } from '../../types/kanban';
+
+interface Empresa {
+  _id: Id<"empresas">;
+  titulo: string;
+  endereco?: string;
+  categoria?: string;
+  telefone?: string;
+  website?: string;
+  avaliacao?: number;
+  totalAvaliacoes?: number;
+  status: string;
+  capturadoEm: number;
+}
 
 interface KanbanBoardProps {
-  empresas: EmpresaBanco[];
+  empresas: Empresa[];
 }
 
 export function KanbanBoard({ empresas }: KanbanBoardProps) {
-  const { state, moveEmpresa, dispararMensagem } = useKanban(empresas);
-  const [activeItem, setActiveItem] = useState<EmpresaBanco | null>(null);
+  const updateStatus = useMutation(api.mutations.empresas.updateStatus);
+  const [activeItem, setActiveItem] = useState<EmpresaKanban | null>(null);
   const [overColumn, setOverColumn] = useState<KanbanStatus | null>(null);
+
+  // Converter empresas do Convex para o formato do Kanban
+  const empresasKanban = useMemo((): EmpresaKanban[] => {
+    return empresas.map((empresa, index) => ({
+      id: index,
+      _id: empresa._id,
+      titulo: empresa.titulo,
+      endereco: empresa.endereco,
+      categoria: empresa.categoria,
+      telefone: empresa.telefone,
+      website: empresa.website,
+      avaliacao: empresa.avaliacao,
+      totalAvaliacoes: empresa.totalAvaliacoes,
+      status: empresa.status as KanbanStatus,
+    }));
+  }, [empresas]);
+
+  // Organizar empresas em colunas
+  const columns = useMemo(() => {
+    const cols: Record<KanbanStatus, IKanbanColumn> = {} as any;
+
+    KANBAN_COLUMNS.forEach(col => {
+      cols[col.id] = {
+        ...col,
+        items: empresasKanban.filter(e => e.status === col.id)
+      };
+    });
+
+    return cols;
+  }, [empresasKanban]);
 
   // Configurar sensores para drag and drop
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 10 // Distância mínima para iniciar o drag
+        distance: 8
       }
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // Delay para iniciar o drag em touch
-        tolerance: 5 // Tolerância de movimento
+        delay: 200,
+        tolerance: 5
       }
     })
   );
 
   // Manipular início do drag
-  const handleDragStart = (event: DragStartEvent) => {
-    const empresaId = parseInt(event.active.id.toString().replace('empresa-', ''));
-    const empresa = Object.values(state.columns)
-      .flatMap(col => col.items)
-      .find(e => e.id === empresaId);
-    
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const empresaId = event.active.id.toString().replace('empresa-', '');
+    const empresa = empresasKanban.find(e => e._id === empresaId);
+
     if (empresa) {
       setActiveItem(empresa);
     }
-  };
+  }, [empresasKanban]);
 
   // Manipular drag sobre coluna
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
     if (!event.over) {
       setOverColumn(null);
       return;
     }
 
     const newOverColumn = event.over.id as KanbanStatus;
-    setOverColumn(newOverColumn);
-  };
+    if (KANBAN_COLUMNS.some(col => col.id === newOverColumn)) {
+      setOverColumn(newOverColumn);
+    }
+  }, []);
 
   // Manipular fim do drag
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     setActiveItem(null);
     setOverColumn(null);
 
     if (!over) return;
 
-    const empresaId = parseInt(active.id.toString().replace('empresa-', ''));
-    const fromStatus = Object.entries(state.columns).find(
-      ([_, col]) => col.items.some(e => e.id === empresaId)
-    )?.[0] as KanbanStatus;
+    const empresaId = active.id.toString().replace('empresa-', '') as Id<"empresas">;
     const toStatus = over.id as KanbanStatus;
 
-    if (fromStatus && toStatus && fromStatus !== toStatus) {
-      moveEmpresa(empresaId, fromStatus, toStatus);
+    // Verificar se é uma coluna válida
+    if (!KANBAN_COLUMNS.some(col => col.id === toStatus)) return;
+
+    // Encontrar empresa e verificar se mudou de status
+    const empresa = empresasKanban.find(e => e._id === empresaId);
+    if (!empresa || empresa.status === toStatus) return;
+
+    // Atualizar no banco
+    try {
+      await updateStatus({
+        id: empresaId,
+        status: toStatus
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
     }
-  };
+  }, [empresasKanban, updateStatus]);
 
   return (
-    <DndContext 
-      sensors={sensors} 
+    <DndContext
+      sensors={sensors}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="
-        flex gap-2 sm:gap-4 
-        overflow-x-auto pb-2 sm:pb-4 
-        scrollbar-thin scrollbar-thumb-accent/30 scrollbar-track-transparent
-        -mx-6 px-6 sm:mx-0 sm:px-0 /* Permite scroll edge-to-edge em mobile */
-        snap-x snap-mandatory /* Adiciona snap scroll para melhor UX */
-      ">
-        {Object.values(state.columns).map((column) => (
-          <div key={column.id} className="snap-center">
-            <KanbanColumn
-              column={column}
-              onDisparar={dispararMensagem}
-              isOver={overColumn === column.id}
-              minWidthClass="min-w-[280px] sm:min-w-[320px] max-w-[320px]"
-            />
-          </div>
+      <div className="flex gap-3 pb-4 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        {KANBAN_COLUMNS.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            column={columns[column.id]}
+            isOver={overColumn === column.id}
+          />
         ))}
       </div>
 
-      <DragOverlay
-        draggedItem={activeItem}
-        onDisparar={dispararMensagem}
-      />
+      <DragOverlay draggedItem={activeItem} />
     </DndContext>
   );
-} 
+}

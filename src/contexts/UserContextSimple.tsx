@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useUser as useClerkUser } from '@clerk/clerk-react';
 
 interface User {
   id: string;
@@ -30,95 +30,44 @@ export const useUser = () => {
   return context;
 };
 
-const getDeviceId = () => {
-  let deviceId = localStorage.getItem('device_id');
-  if (!deviceId) {
-    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('device_id', deviceId);
-  }
-  return deviceId;
-};
-
 export const UserProviderSimple: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { user: clerkUser, isLoaded, isSignedIn } = useClerkUser();
 
-  // Carregar usuário do localStorage
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user_data');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        console.log('👤 Usuário carregado do localStorage:', userData);
-      } catch (error) {
-        console.error('❌ Erro ao carregar usuário:', error);
-        localStorage.removeItem('user_data');
-      }
-    }
-    setLoading(false);
-  }, []);
+  // Converter usuário do Clerk para o formato esperado
+  const user: User | null = clerkUser && isSignedIn ? {
+    id: clerkUser.id,
+    name: clerkUser.fullName || clerkUser.firstName || 'Usuário',
+    email: clerkUser.primaryEmailAddress?.emailAddress || '',
+    phone: clerkUser.primaryPhoneNumber?.phoneNumber || '',
+    cpf: undefined
+  } : null;
 
-  // Verificar assinatura sempre que o usuário mudar
-  const checkSubscription = async () => {
-    // Por enquanto, considerar todos os usuários como assinados
-    // para evitar erro da tabela user_subscriptions que não existe
-    setIsSubscribed(true);
+  // Com Clerk, verificamos se o usuário está autenticado
+  const loading = !isLoaded;
+  const isSubscribed = isSignedIn || false;
+
+  const checkSubscription = () => {
+    // Com Clerk, a assinatura é verificada pelo estado de autenticação
+    // Pode ser expandido para verificar claims/metadata se necessário
   };
 
-  // Verificar assinatura quando usuário carrega
-  useEffect(() => {
-    if (user) {
-      checkSubscription();
-    }
-  }, [user]);
-
-  const signUp = async (userData: { name: string; email: string; phone: string; cpf: string }) => {
-    try {
-      setLoading(true);
-      
-      const deviceId = getDeviceId();
-      
-      const { data, error } = await supabase.rpc('create_or_get_user', {
-        p_name: userData.name,
-        p_email: userData.email,
-        p_phone: userData.phone,
-        p_device_id: deviceId,
-        p_cpf: userData.cpf
-      });
-
-      if (error) {
-        console.error('❌ [SIMPLE] Erro no Supabase:', error);
-        return { success: false, error: 'Erro ao processar cadastro' };
-      }
-
-      if (data?.success) {
-        const newUser = data.user;
-        setUser(newUser);
-        localStorage.setItem('user_data', JSON.stringify(newUser));
-        console.log('✅ [SIMPLE] Usuário criado:', newUser);
-        return { success: true };
-      } else {
-        return { success: false, error: 'Erro inesperado no cadastro' };
-      }
-      
-    } catch (error) {
-      console.error('❌ [SIMPLE] Erro geral no cadastro:', error);
-      return { success: false, error: 'Erro de conexão' };
-    } finally {
-      setLoading(false);
-    }
+  const signUp = async (_userData: { name: string; email: string; phone: string; cpf: string }) => {
+    // Com Clerk, o signup é feito via componente SignUp
+    // Esta função é mantida para compatibilidade
+    return {
+      success: false,
+      error: 'Use o formulário de cadastro do Clerk para criar uma conta.'
+    };
   };
 
-  const value = {
+  const value: UserContextType = {
     user,
     isSubscribed,
     loading,
     signUp,
     checkSubscription,
     isFirstTime: !user,
-    canAccessContent: () => Boolean(user)
+    canAccessContent: () => Boolean(user && isSignedIn)
   };
 
   return (
@@ -126,4 +75,4 @@ export const UserProviderSimple: React.FC<{ children: ReactNode }> = ({ children
       {children}
     </UserContext.Provider>
   );
-}; 
+};
