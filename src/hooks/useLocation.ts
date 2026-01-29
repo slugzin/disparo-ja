@@ -160,7 +160,7 @@ export const useLocation = () => {
   useEffect(() => {
     console.log('🚀 [useLocation] Hook inicializado, detectando localização...');
     
-    // Limpar cache antigo do Supabase na primeira execução
+    // Limpar cache antigo do Supabase na primeira execuçãos
     const hasOldCache = localStorage.getItem('userLocationSupabase');
     if (hasOldCache) {
       console.log('🧹 [useLocation] Limpando cache antigo do Supabase...');
