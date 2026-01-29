@@ -2,7 +2,19 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  // Perfis de usuário (sincronizado com Clerk)
+  // Usuários (autenticação simples)
+  users: defineTable({
+    email: v.string(),
+    senha: v.string(), // Em produção, usar hash
+    nome: v.string(),
+    role: v.union(v.literal("admin"), v.literal("user")),
+    ativo: v.boolean(),
+    createdAt: v.number(),
+    lastLogin: v.optional(v.number()),
+  })
+    .index("by_email", ["email"]),
+
+  // Perfis de usuário (sincronizado com Clerk - legado)
   profiles: defineTable({
     clerkId: v.string(),
     email: v.string(),
