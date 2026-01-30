@@ -7,11 +7,14 @@ import {
 } from "react-router-dom";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AdminProvider } from "./context/AdminContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { FiltrosProvider } from "./contexts/FiltrosContext";
 
 import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import CadastroPage from "./pages/CadastroPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import LeadsPage from "./pages/admin/LeadsPage";
@@ -22,28 +25,48 @@ import DisparosHistoricoPage from "./pages/admin/DisparosHistoricoPage";
 import ConversasPage from "./pages/admin/ConversasPage";
 import FluxosPage from "./pages/admin/FluxosPage";
 
-// ============================================
-// MODO DE TESTE - CLERK DESATIVADO
-// Para reativar o Clerk, mude para false
-const DISABLE_CLERK = true;
-// ============================================
-
-// Configuração do Convex
+// Configuracao do Convex
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
+// Componente para proteger rotas
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 function AppRoutes() {
   return (
     <Router>
       <Routes>
-        {/* Página inicial */}
+        {/* Pagina inicial */}
         <Route path="/" element={<HomePage />} />
 
-        {/* Login temporário - redireciona direto para admin */}
-        <Route path="/login" element={<Navigate to="/admin" replace />} />
-        <Route path="/cadastro" element={<Navigate to="/admin" replace />} />
+        {/* Login e Cadastro */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/cadastro" element={<CadastroPage />} />
 
-        {/* Admin Routes - SEM proteção durante testes */}
-        <Route path="/admin" element={<AdminLayout />}>
+        {/* Admin Routes - Protegidas */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<DashboardPage />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="disparos" element={<DisparosPage />} />
@@ -62,10 +85,9 @@ function AppRoutes() {
 }
 
 function App() {
-  // Modo de teste sem Clerk
-  if (DISABLE_CLERK) {
-    return (
-      <ConvexProvider client={convex}>
+  return (
+    <ConvexProvider client={convex}>
+      <AuthProvider>
         <ThemeProvider>
           <AdminProvider>
             <FiltrosProvider>
@@ -73,31 +95,9 @@ function App() {
             </FiltrosProvider>
           </AdminProvider>
         </ThemeProvider>
-      </ConvexProvider>
-    );
-  }
-
-  // Modo normal com Clerk (desativado temporariamente)
-  // Para reativar, mude DISABLE_CLERK para false e descomente o código abaixo
-  /*
-  return (
-    <ClerkProvider publishableKey={clerkPubKey}>
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <ThemeProvider>
-          <ConvexUserProvider>
-            <AdminProvider>
-              <FiltrosProvider>
-                <AppRoutes />
-              </FiltrosProvider>
-            </AdminProvider>
-          </ConvexUserProvider>
-        </ThemeProvider>
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+      </AuthProvider>
+    </ConvexProvider>
   );
-  */
-
-  return null;
 }
 
 export default App;

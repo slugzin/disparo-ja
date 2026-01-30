@@ -20,6 +20,7 @@ import type * as mutations_empresas from "../mutations/empresas.js";
 import type * as mutations_leads from "../mutations/leads.js";
 import type * as mutations_profiles from "../mutations/profiles.js";
 import type * as mutations_templates from "../mutations/templates.js";
+import type * as mutations_users from "../mutations/users.js";
 import type * as mutations_whatsappInstances from "../mutations/whatsappInstances.js";
 import type * as queries_campanhas from "../queries/campanhas.js";
 import type * as queries_conversas from "../queries/conversas.js";
@@ -29,6 +30,7 @@ import type * as queries_empresas from "../queries/empresas.js";
 import type * as queries_leads from "../queries/leads.js";
 import type * as queries_profiles from "../queries/profiles.js";
 import type * as queries_templates from "../queries/templates.js";
+import type * as queries_users from "../queries/users.js";
 import type * as queries_whatsappInstances from "../queries/whatsappInstances.js";
 
 import type {
@@ -50,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "mutations/leads": typeof mutations_leads;
   "mutations/profiles": typeof mutations_profiles;
   "mutations/templates": typeof mutations_templates;
+  "mutations/users": typeof mutations_users;
   "mutations/whatsappInstances": typeof mutations_whatsappInstances;
   "queries/campanhas": typeof queries_campanhas;
   "queries/conversas": typeof queries_conversas;
@@ -59,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "queries/leads": typeof queries_leads;
   "queries/profiles": typeof queries_profiles;
   "queries/templates": typeof queries_templates;
+  "queries/users": typeof queries_users;
   "queries/whatsappInstances": typeof queries_whatsappInstances;
 }>;
 

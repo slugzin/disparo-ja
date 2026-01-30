@@ -16,11 +16,18 @@ import {
   Building
 } from '../../utils/icons';
 import { ThemeSwitcher } from '../../components/ui/ThemeSwitcher';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const menuItems = [
     {
@@ -179,7 +186,7 @@ const AdminLayout: React.FC = () => {
 
           <div className={`p-3 border-t border-border ${!isExpanded ? 'px-2' : ''}`}>
             <button
-              onClick={() => {}}
+              onClick={handleLogout}
               className={`
                 flex items-center w-full text-muted-foreground 
                 hover:text-foreground hover:bg-destructive/10 
